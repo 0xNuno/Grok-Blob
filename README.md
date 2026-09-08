@@ -34,6 +34,7 @@ Blob is not always-on-top and does not hide on blur.
 - [Launch checklist](docs/launch-checklist.md) - day-of Launch to Prod: security, package, and smoke
 - [Releasing](docs/releasing.md) - packaging and GitHub Releases for this public tree
 - [Pipeline](docs/pipeline.md) - living roadmap for chat, agent switching, and capture
+- [Upgrading / What’s next](docs/upgrading.md) - queued fixes and features after launch
 - [Activity schema](docs/activity-schema.md) - portable `activity.json` tasks any host bot can write
 
 ## Run on a Mac
