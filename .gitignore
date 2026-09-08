@@ -1,0 +1,26 @@
+node_modules
+dist
+.env
+.env.*
+tokens
+*.token
+gateway.json
+
+.DS_Store
+
+.blob-activity.json
+/activity.json
+release
+out
+build/icon.iconset
+
+# packaging output (outside esbuild dist/)
+dist-out/
+build/icon.iconset/
+*.dmg
+*.blockmap
+
+release/
+
+# local absolute-path helper (keep private)
+do-dev.sh

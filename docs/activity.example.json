@@ -1,0 +1,41 @@
+{
+  "schema": "blob.activity/v1",
+  "tasks": [
+    {
+      "id": "example-running",
+      "title": "Activity panel v1",
+      "status": "running",
+      "agentId": "00000000-0000-4000-8000-000000000001",
+      "agentName": "TheFirst",
+      "updatedAt": "2026-09-03T11:30:00.000Z",
+      "note": "Building the overlay activity panel and writing blob.activity/v1.",
+      "priority": 0
+    },
+    {
+      "id": "example-waiting",
+      "title": "Confirm mesh path",
+      "status": "waiting",
+      "agentName": "TheFirst",
+      "updatedAt": "2026-09-03T11:29:30.000Z",
+      "note": "Waiting on a decision: localhost, SSH forward, or Tailscale.",
+      "priority": 1
+    },
+    {
+      "id": "example-next",
+      "title": "Streaming / live updates",
+      "status": "next",
+      "agentName": "Blob Builder",
+      "updatedAt": "2026-09-03T11:29:10.000Z",
+      "description": "Planned after poll-then-tail feels honest enough.",
+      "priority": 2
+    },
+    {
+      "id": "example-queued",
+      "title": "Example queued task",
+      "status": "queued",
+      "agentName": "Blob Builder",
+      "updatedAt": "2026-09-03T11:29:00.000Z",
+      "priority": 3
+    }
+  ]
+}

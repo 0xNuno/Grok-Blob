@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blob</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="sheet">
+      <header id="chrome" class="chrome">
+        <div id="agent-mark" class="mark" aria-hidden="true"></div>
+        <div id="agent-line" class="agent-line"></div>
+        <button id="sync" class="ghost sync-toggle" type="button" title="Sync · ⌘⇧R" aria-label="Sync with host">
+          <svg class="sync-toggle-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.55"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M13.25 5.1A5.5 5.5 0 0 0 4.2 4.85M2.75 10.9A5.5 5.5 0 0 0 11.8 11.15M13.25 2.4v2.9h-2.9M2.75 13.6v-2.9h2.9"
+            />
+          </svg>
+        </button>
+        <button id="activity-toggle" class="ghost activity-toggle" type="button" title="Activity" aria-label="Activity" aria-pressed="false">
+          <span class="activity-toggle-icon" aria-hidden="true"></span>
+        </button>
+        <button id="gear" class="ghost" type="button" title="Settings">⚙</button>
+      </header>
+      <p id="banner" class="banner" hidden></p>
+      <div id="find-bar" class="find-bar" hidden>
+        <input id="find-input" type="search" placeholder="find in chat" autocomplete="off" spellcheck="false" aria-label="Find in conversation" />
+        <span id="find-count" class="find-count" aria-live="polite"></span>
+        <button id="find-prev" class="ghost" type="button" title="Previous match">prev</button>
+        <button id="find-next" class="ghost" type="button" title="Next match">next</button>
+        <button id="find-close" class="ghost" type="button" title="Close">×</button>
+      </div>
+      <main id="main"></main>
+      <footer id="composer" hidden>
+        <div id="reply-bar" class="reply-bar" hidden>
+          <div class="reply-bar-body">
+            <span class="reply-bar-label">reply</span>
+            <span id="reply-bar-quote" class="reply-bar-quote"></span>
+          </div>
+          <button id="reply-bar-clear" class="ghost" type="button" title="Cancel reply">×</button>
+        </div>
+        <div id="attach-bar" class="attach-bar" hidden></div>
+        <div class="composer-row">
+          <button id="capture" class="ghost capture-btn" type="button" title="capture region · ⌘⇧2 · option-click for full screen" aria-label="Capture region">⛶</button>
+          <textarea id="prompt" rows="2" placeholder="write to the agent…"></textarea>
+          <button id="send" type="button">send</button>
+        </div>
+      </footer>
+    </div>
+    <div id="panel-split" class="panel-split" hidden title="Drag to resize pipeline" role="separator" aria-orientation="vertical" aria-label="Resize pipeline"></div>
+    <aside id="activity" hidden>
+      <section class="activity-section pipeline-section">
+        <div class="activity-section-head">
+          <h2>pipeline</h2>
+          <div id="pipeline-tabs" class="pipeline-tabs" role="tablist" aria-label="Pipeline source">
+            <button id="pipeline-tab-bots" class="pipeline-tab active" type="button" role="tab" aria-selected="true" data-tab="bots">Bots</button>
+            <button id="pipeline-tab-mine" class="pipeline-tab" type="button" role="tab" aria-selected="false" data-tab="mine">Mine</button>
+          </div>
+          <button id="activity-sync" class="ghost activity-sync" type="button" title="Sync activity" aria-label="Sync activity pipeline">
+            <svg class="activity-sync-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.55"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M13.25 5.1A5.5 5.5 0 0 0 4.2 4.85M2.75 10.9A5.5 5.5 0 0 0 11.8 11.15M13.25 2.4v2.9h-2.9M2.75 13.6v-2.9h2.9"
+              />
+            </svg>
+          </button>
+        </div>
+        <p id="activity-note" class="activity-note">activity.json tasks · agent busy from the host</p>
+        <p id="activity-chron" class="activity-chron" role="status" aria-live="polite">checking…</p>
+        <p id="activity-seed" class="activity-seed" hidden>demo seed — waiting for host activity.json</p>
+        <div id="mine-compose" class="mine-compose" hidden>
+          <input id="mine-input" type="text" placeholder="add a personal task…" autocomplete="off" spellcheck="false" aria-label="New personal task" />
+          <button id="mine-add" class="ghost mine-add" type="button">Add</button>
+        </div>
+        <div id="task-list" class="roster"></div>
+      </section>
+      <section class="activity-section agents-section">
+        <h2>agents</h2>
+        <div id="agent-roster" class="roster"></div>
+      </section>
+    </aside>
+    <div id="agent-picker" class="agent-picker" hidden>
+      <div class="agent-picker-card" role="dialog" aria-modal="true" aria-label="Switch agent">
+        <input id="agent-picker-input" type="search" placeholder="switch agent" autocomplete="off" spellcheck="false" aria-label="Search agents" />
+        <div id="agent-picker-list" class="agent-picker-list" role="listbox"></div>
+      </div>
+    </div>
+    <div id="msg-menu" class="msg-menu" hidden role="menu" aria-label="Message"></div>
+    <div id="task-menu" class="msg-menu" hidden role="menu" aria-label="Task"></div>
+    <div id="task-detail" class="task-detail" hidden role="dialog" aria-label="Task details">
+      <p id="task-detail-title" class="task-detail-title"></p>
+      <p id="task-detail-meta" class="task-detail-meta"></p>
+      <p id="task-detail-body" class="task-detail-body"></p>
+      <dl id="task-detail-extra" class="task-detail-extra" hidden></dl>
+      <button id="task-detail-expand" class="task-detail-expand" type="button" aria-expanded="false">Expand more</button>
+    </div>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

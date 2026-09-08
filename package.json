@@ -1,0 +1,65 @@
+{
+  "name": "blob",
+  "productName": "Blob",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quiet local overlay to talk to Grok Bot agents through the host private HTTP gateway.",
+  "author": "Nuno Cortesao",
+  "license": "MIT",
+  "homepage": "https://github.com/0xNuno/Grok-Blob",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xNuno/Grok-Blob.git"
+  },
+  "main": "dist/main/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/build.mjs && electron .",
+    "build": "node scripts/build.mjs",
+    "icons": "node scripts/make-icon.mjs",
+    "typecheck": "tsc --noEmit",
+    "pack": "node scripts/build.mjs && node scripts/zipapp.mjs dir",
+    "dist": "node scripts/build.mjs && node scripts/zipapp.mjs full"
+  },
+  "optionalDependencies": {
+    "@adam91holt/grokbot-sdk": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "electron": "^36.2.1",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.2",
+    "typescript": "^5.8.2"
+  },
+  "build": {
+    "appId": "com.0xnuno.grokblob",
+    "productName": "Blob",
+    "copyright": "Copyright 2026 Nuno Cortesao",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "LICENSE",
+      "README.md"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "notarize": false,
+      "target": ["dmg", "zip"]
+    },
+    "dmg": {
+      "title": "Blob ${version}"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  }
+}

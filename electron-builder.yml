@@ -1,0 +1,6 @@
+# package.json build key is the source of truth.
+# zipapp.mjs writes Mac artifacts under Library/Caches/GrokBlob/out (BLOB_OUT to override).
+appId: com.0xnuno.grokblob
+productName: Blob
+directories:
+  buildResources: build
