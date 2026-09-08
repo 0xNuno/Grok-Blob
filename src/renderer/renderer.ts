@@ -403,13 +403,16 @@ function paintPicker(opts?: { selectCurrent?: boolean; keepIndex?: boolean }): v
     const status = agentStatus(agent);
     const btn = document.createElement("button");
     btn.type = "button";
+    const unread = agentIsUnread(agent.id, current);
     btn.className =
       "agent-picker-item" +
       (i === pickerIndex ? " active" : "") +
-      (agent.id === current.agentId ? " selected" : "");
+      (agent.id === current.agentId ? " selected" : "") +
+      (unread ? " unread" : "");
     btn.setAttribute("role", "option");
     btn.setAttribute("aria-selected", i === pickerIndex ? "true" : "false");
-    btn.title = agent.isGroup ? `${agent.name} (group) · ${status.label}` : `${agent.name} · ${status.label}`;
+    const baseTitle = agent.isGroup ? `${agent.name} (group) · ${status.label}` : `${agent.name} · ${status.label}`;
+    btn.title = unread ? `${baseTitle} · new activity` : baseTitle;
     applyAgentTint(btn, agentTint(agent));
     const dot = document.createElement("span");
     dot.className = `status-dot ${status.key}`;
@@ -420,7 +423,8 @@ function paintPicker(opts?: { selectCurrent?: boolean; keepIndex?: boolean }): v
     const meta = document.createElement("span");
     meta.className = "picker-meta";
     meta.textContent = rosterIdx >= 0 && rosterIdx < 9 ? String(rosterIdx + 1) : status.label;
-    btn.append(dot, name, meta);
+    if (unread) btn.append(dot, name, unreadBadge(), meta);
+    else btn.append(dot, name, meta);
     const index = i;
     btn.addEventListener("click", () => {
       void pickAgent(agent.id);
@@ -647,7 +651,7 @@ function paintChrome(next: SheetState): void {
 function renderAgent(next: SheetState): void {
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "agent-switch";
+  btn.className = "agent-switch" + (anyUnread(next) ? " has-unread" : "");
   btn.setAttribute("aria-label", "Agent");
   btn.setAttribute("aria-haspopup", "listbox");
   btn.setAttribute("aria-expanded", pickerOpen ? "true" : "false");
@@ -661,7 +665,11 @@ function renderAgent(next: SheetState): void {
     const currentAgent = next.agents.find((agent) => agent.id === next.agentId);
     const label = currentAgent?.name ?? "select agent";
     name.textContent = currentAgent?.isGroup ? `${label} (group)` : label;
-    btn.title = "switch agent · ⌘K";
+    const unreadN = unreadSet(next).size;
+    btn.title =
+      unreadN > 0
+        ? `switch agent · ⌘K · ${unreadN} with new activity`
+        : "switch agent · ⌘K";
     btn.addEventListener("click", () => {
       if (pickerOpen) closePicker();
       else openPicker();
@@ -669,7 +677,8 @@ function renderAgent(next: SheetState): void {
     const chevron = document.createElement("span");
     chevron.className = "agent-switch-chevron";
     chevron.setAttribute("aria-hidden", "true");
-    btn.append(name, chevron);
+    if (anyUnread(next)) btn.append(name, unreadBadge("new activity on another agent"), chevron);
+    else btn.append(name, chevron);
   }
   agentLine.replaceChildren(btn);
 }
@@ -1204,6 +1213,7 @@ function renderSettings(next: SheetState): void {
               status: "error",
               warning: null,
               attachments: [],
+              unreadAgentIds: [],
             };
         apply(fallback);
       });
@@ -1224,6 +1234,36 @@ function agentStatus(agent: AgentRow): { key: string; label: string } {
   if (agent.isRunning) return { key: "busy", label: "busy" };
   return { key: "idle", label: "idle" };
 }
+
+/** Pipeline chron unread — survives SheetState apply from main (main tracks settle/roster). */
+const activityUnread = new Set<string>();
+
+function unreadSet(next: SheetState | null = current): Set<string> {
+  const ids = new Set(next?.unreadAgentIds ?? []);
+  for (const id of activityUnread) ids.add(id);
+  if (next?.agentId) {
+    ids.delete(next.agentId);
+    activityUnread.delete(next.agentId);
+  }
+  return ids;
+}
+
+function agentIsUnread(agentId: string, next: SheetState | null = current): boolean {
+  return unreadSet(next).has(agentId);
+}
+
+function anyUnread(next: SheetState | null = current): boolean {
+  return unreadSet(next).size > 0;
+}
+
+function unreadBadge(title = "new activity"): HTMLSpanElement {
+  const el = document.createElement("span");
+  el.className = "unread-badge";
+  el.title = title;
+  el.setAttribute("aria-label", title);
+  return el;
+}
+
 
 function relTime(iso: string): string {
   const t = Date.parse(iso);
@@ -1246,10 +1286,15 @@ function renderRoster(agents: AgentRow[], agentId: string | null): void {
   }
   for (const agent of agents) {
     const status = agentStatus(agent);
+    const unread = agentIsUnread(agent.id);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "roster-row" + (agent.id === agentId ? " selected" : "");
-    btn.title = agent.isGroup ? `${agent.name} (group) · ${status.label}` : `${agent.name} · ${status.label}`;
+    btn.className =
+      "roster-row" + (agent.id === agentId ? " selected" : "") + (unread ? " unread" : "");
+    const baseTitle = agent.isGroup
+      ? `${agent.name} (group) · ${status.label}`
+      : `${agent.name} · ${status.label}`;
+    btn.title = unread ? `${baseTitle} · new activity` : baseTitle;
     applyAgentTint(btn, agentTint(agent));
     const dot = document.createElement("span");
     dot.className = `status-dot ${status.key}`;
@@ -1260,7 +1305,8 @@ function renderRoster(agents: AgentRow[], agentId: string | null): void {
     const meta = document.createElement("span");
     meta.className = `roster-state ${status.key}`;
     meta.textContent = agent.isGroup ? `${status.label} · group` : status.label;
-    btn.append(dot, name, meta);
+    if (unread) btn.append(dot, name, unreadBadge(), meta);
+    else btn.append(dot, name, meta);
     btn.addEventListener("click", () => {
       void window.blob.selectAgent(agent.id).then(apply);
     });
@@ -1308,6 +1354,16 @@ function applyChron(tasks: ActivityTask[]): void {
     lastChron = diff;
     flashIds = new Set(diff.changedIds);
     flashUntil = Date.now() + 1400;
+    // Pipeline activity on another agent → unread badge (no auto-switch).
+    if (current && diff.changedIds.length > 0) {
+      const agents = current.agents;
+      for (const id of diff.changedIds) {
+        const task = tasks.find((row) => row.id === id);
+        if (!task) continue;
+        const live = matchAgent(task, agents);
+        if (live && live.id !== current.agentId) activityUnread.add(live.id);
+      }
+    }
   }
   chronPrev = tasks;
   lastTasks = tasks;
@@ -1837,6 +1893,23 @@ function renderTasks(tasks: ActivityTask[], agents: AgentRow[]): void {
   paintChron();
 }
 
+
+/** Apply roster/unread from a poll without clobbering the selected transcript. */
+function mergeRosterState(state: SheetState, opts?: { paint?: boolean }): void {
+  if (!current) return;
+  current.agents = state.agents;
+  current.unreadAgentIds = state.unreadAgentIds ?? [];
+  if (opts?.paint === false) return;
+  paintUnreadChrome();
+}
+
+/** Header switcher + open picker badges; transcript stays put. */
+function paintUnreadChrome(): void {
+  if (!current?.configured || holdingSetup || viewingSettings) return;
+  renderAgent(current);
+  if (pickerOpen) paintPicker({ keepIndex: true });
+}
+
 function stopPanelPoll(): void {
   if (panelTimer !== null) {
     window.clearInterval(panelTimer);
@@ -1863,17 +1936,21 @@ async function tickActivity(): Promise<void> {
   try {
     if (panelOpen && pipelineTab === "mine") {
       const [state, feed] = await Promise.all([window.blob.refreshRoster(), window.blob.getMineTasks()]);
-      if (current) current.agents = state.agents;
+      mergeRosterState(state);
       lastTasks = feed.tasks;
       paintActivityPanel(state.agents, current?.agentId ?? state.agentId, feed.tasks);
     } else if (panelOpen) {
       const [state, feed] = await Promise.all([window.blob.refreshRoster(), window.blob.getActivity()]);
-      if (current) current.agents = state.agents;
+      mergeRosterState(state, { paint: false });
       applyChron(feed.tasks);
+      paintUnreadChrome();
       paintActivityPanel(state.agents, current?.agentId ?? state.agentId, feed.tasks);
     } else {
-      const feed = await window.blob.getActivity();
+      // Closed panel: still refresh roster so unread badges update without switching chat.
+      const [state, feed] = await Promise.all([window.blob.refreshRoster(), window.blob.getActivity()]);
+      mergeRosterState(state, { paint: false });
       applyChron(feed.tasks);
+      paintUnreadChrome();
     }
   } catch {
     // Keep the last paint; a poll blip should not blank the panel.
@@ -1888,9 +1965,10 @@ async function refreshActivityFeed(): Promise<void> {
   try {
     const feedPromise = pipelineTab === "mine" ? window.blob.getMineTasks() : window.blob.getActivity();
     const [state, feed] = await Promise.all([window.blob.refreshRoster(), feedPromise]);
-    if (current) current.agents = state.agents;
+    mergeRosterState(state, { paint: false });
     if (pipelineTab === "bots") applyChron(feed.tasks);
     else lastTasks = feed.tasks;
+    paintUnreadChrome();
     paintActivityPanel(state.agents, current?.agentId ?? state.agentId, feed.tasks);
   } catch {
     // Keep the last paint; a sync blip should not blank the panel.

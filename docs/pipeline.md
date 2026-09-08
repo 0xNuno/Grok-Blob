@@ -71,6 +71,10 @@ Shipped: drive the roster from the keyboard while the sheet is focused. Header i
 
 Shipped: drop the "blob" wordmark so the agent name is the hero. Stable per-agent accent (Blob Builder brown, TheFirst blue, Growth silver, others a hashed pastel from id) on the face/dot, switcher chip, and a light header wash. Busy pulses the face without shoving the name. Swipe flash tints toward the incoming agent. Brown sheet chrome kept. Sync and activity controls stay in the header.
 
+### ~~Don't auto-switch chat on incoming messages~~ **ask** — S **done**
+
+Shipped: stay on the current agent when another chat gets a reply or pipeline activity. Background `settleTurn` no longer overwrites the open transcript (that was the header/transcript desync). Unread badges on the header switcher, ⌘K picker, and activity roster; cleared when that agent is opened. Roster poll may mark awaiting-you / finished-turn on other agents without selecting them.
+
 ### ~~Screenshots / image attach~~ **ask** — L **done** (capture) / **partial** (host images)
 
 Shipped: hide the overlay, wait for the `hide` event (250 ms cap), then macOS `screencapture`. Restore the sheet in `finally` so cancel / TCC failure cannot leave it stuck hidden. Region is the default (`-i`); full screen is option-click on the composer button or Edit › Capture Screen. Composer shows a thumbnail chip (bytes stay in main). `Command+Shift+2` while the sheet is focused (does not fight summon `⌘⇧Space`, display `⌘⇧M`, find `⌘F`, picker `⌘K`, cycle `⌘⇧] / [`). Paste image from clipboard onto the same chip list.

@@ -110,6 +110,53 @@ function describeConnectError(err: unknown): string {
 
 const localReactions = new Map<string, Map<string, MessageReaction[]>>();
 
+/** Agent ids with new activity while the user was viewing a different chat. */
+const unreadAgentIds = new Set<string>();
+
+type AgentPulse = { composing: boolean; awaiting: boolean; running: boolean };
+const lastPulse = new Map<string, AgentPulse>();
+
+/** Which agent a background settleTurn is waiting on (null when idle). */
+let settlingAgentId: string | null = null;
+
+function markUnread(agentId: string): void {
+  if (!agentId || agentId === runtime.agentId) return;
+  unreadAgentIds.add(agentId);
+}
+
+function clearUnread(agentId: string): void {
+  unreadAgentIds.delete(agentId);
+}
+
+function pruneUnread(): void {
+  const live = new Set(runtime.agents.map((a) => a.id));
+  for (const id of [...unreadAgentIds]) {
+    if (!live.has(id)) unreadAgentIds.delete(id);
+  }
+}
+
+/** Detect finished turns / new awaiting-you on non-selected agents from roster polls. */
+function noteUnreadFromRoster(): void {
+  const selected = runtime.agentId;
+  for (const agent of runtime.agents) {
+    const cur: AgentPulse = {
+      composing: agent.isComposingMessage,
+      awaiting: agent.awaitingUserResponse,
+      running: agent.isRunning,
+    };
+    const prev = lastPulse.get(agent.id);
+    if (prev && agent.id !== selected) {
+      const wasBusy = prev.composing || prev.running;
+      const nowIdle = !cur.composing && !cur.running;
+      if (wasBusy && nowIdle) markUnread(agent.id);
+      if (!prev.awaiting && cur.awaiting) markUnread(agent.id);
+    }
+    lastPulse.set(agent.id, cur);
+  }
+  pruneUnread();
+}
+
+
 function reactionsFor(agentId: string): Map<string, MessageReaction[]> {
   let map = localReactions.get(agentId);
   if (!map) {
@@ -163,27 +210,46 @@ function emitState(): void {
 
 export function snapshot(): SheetState {
   const loaded = loadSettings();
+  // Busy face only for the chat the user is actually viewing — a settle on
+  // another agent must not paint "working" over the current transcript.
+  const busyHere =
+    runtime.busy && (settlingAgentId == null || settlingAgentId === runtime.agentId);
+  const settleStatus =
+    runtime.status === "sending" ||
+    runtime.status === "waiting" ||
+    runtime.status === "reading" ||
+    runtime.status === "idle";
   return {
     configured: runtime.configured,
     settings: { gatewayUrl: runtime.gatewayUrl, tokenSet: loaded.token.length > 0 },
     agents: runtime.agents,
     agentId: runtime.agentId,
     messages: runtime.messages,
-    busy: runtime.busy,
+    busy: busyHere,
     error: runtime.error,
     warning: runtime.warning,
     hotkeyTaken: isHotkeyTaken(),
-    status: runtime.status,
+    status: !busyHere && settleStatus ? "" : runtime.status,
     attachments: listPending(),
+    unreadAgentIds: [...unreadAgentIds],
   };
 }
 
 async function refreshRoster(session: GatewaySession): Promise<void> {
   runtime.agents = await session.listAgents();
+  noteUnreadFromRoster();
   const loaded = loadSettings();
-  const picked = pickDefaultAgent(runtime.agents, runtime.agentId ?? loaded.lastAgentId);
+  // Never auto-switch away from a still-valid selection (poll / settle / sync).
+  if (runtime.agentId && runtime.agents.some((a) => a.id === runtime.agentId)) {
+    saveSettings({ gatewayUrl: loaded.gatewayUrl, lastAgentId: runtime.agentId });
+    return;
+  }
+  const picked = pickDefaultAgent(runtime.agents, loaded.lastAgentId);
   runtime.agentId = picked?.id ?? null;
-  if (runtime.agentId) saveSettings({ gatewayUrl: loaded.gatewayUrl, lastAgentId: runtime.agentId });
+  if (runtime.agentId) {
+    clearUnread(runtime.agentId);
+    saveSettings({ gatewayUrl: loaded.gatewayUrl, lastAgentId: runtime.agentId });
+  }
 }
 
 async function loadTail(session: GatewaySession, agentId: string): Promise<void> {
@@ -251,11 +317,13 @@ export async function persistSettings(input: { gatewayUrl: string; token?: strin
 
 export async function chooseAgent(id: string): Promise<SheetState> {
   runtime.agentId = id;
+  clearUnread(id);
   const loaded = loadSettings();
   saveSettings({ gatewayUrl: loaded.gatewayUrl, lastAgentId: id });
   if (!runtime.session) return snapshot();
   try {
     runtime.error = null;
+    // Load this agent's transcript so header chip + messages stay in lockstep.
     await loadTail(runtime.session, id);
   } catch (err) {
     runtime.error = fail(err);
@@ -334,7 +402,14 @@ async function settleTurn(gw: GatewaySession, agentId: string): Promise<void> {
   await waitUntilIdle(gw, agentId);
   runtime.status = "reading";
   emitState();
-  await loadTail(gw, agentId);
+  // Stay on the user's current chat. If they switched away during the wait,
+  // do not overwrite their transcript — badge the settling agent as unread.
+  if (runtime.agentId === agentId) {
+    await loadTail(gw, agentId);
+    clearUnread(agentId);
+  } else {
+    markUnread(agentId);
+  }
   runtime.status = "idle";
   await refreshRoster(gw);
 }
@@ -349,17 +424,25 @@ let settleGen = 0;
  */
 function followSettleTurn(gw: GatewaySession, agentId: string): void {
   const gen = ++settleGen;
+  settlingAgentId = agentId;
   void (async () => {
     try {
       await settleTurn(gw, agentId);
       if (gen !== settleGen) return;
       runtime.busy = false;
+      if (settlingAgentId === agentId) settlingAgentId = null;
       emitState();
     } catch (err) {
       if (gen !== settleGen) return;
-      runtime.error = fail(err);
-      runtime.status = "error";
       runtime.busy = false;
+      if (settlingAgentId === agentId) settlingAgentId = null;
+      // Do not paint another agent's settle failure over the chat in view.
+      if (runtime.agentId === agentId) {
+        runtime.error = fail(err);
+        runtime.status = "error";
+      } else {
+        markUnread(agentId);
+      }
       emitState();
     }
   })();
@@ -380,6 +463,7 @@ export async function sendPrompt(prompt: string, replyToId?: string): Promise<Sh
   const agentId = runtime.agentId;
   const sendText = text || "(screenshot)";
   runtime.busy = true;
+  settlingAgentId = agentId;
   runtime.error = null;
   runtime.status = "sending";
   const parent = replyToId ? runtime.messages.find((msg) => msg.id === replyToId) : undefined;
@@ -426,6 +510,7 @@ export async function sendPrompt(prompt: string, replyToId?: string): Promise<Sh
     runtime.error = fail(err);
     runtime.status = "error";
     runtime.busy = false;
+    settlingAgentId = null;
     emitState();
     return snapshot();
   }
@@ -484,6 +569,7 @@ async function runHostAction(work: (gw: GatewaySession, agentId: string) => Prom
   const gw = runtime.session;
   const agentId = runtime.agentId;
   runtime.busy = true;
+  settlingAgentId = agentId;
   runtime.error = null;
   runtime.status = "sending";
   emitState();
@@ -499,6 +585,7 @@ async function runHostAction(work: (gw: GatewaySession, agentId: string) => Prom
     runtime.error = fail(err);
     runtime.status = "error";
     runtime.busy = false;
+    settlingAgentId = null;
     emitState();
     return snapshot();
   }
@@ -558,6 +645,7 @@ export async function refreshRosterOnly(): Promise<SheetState> {
   if (!runtime.session) return snapshot();
   try {
     runtime.agents = await runtime.session.listAgents();
+    noteUnreadFromRoster();
   } catch {
     // Background poll must not clobber chat errors or the current selection.
   }

@@ -95,6 +95,8 @@ export type SheetState = {
   hotkeyTaken: boolean;
   status: string;
   attachments: AttachmentChip[];
+  /** Agents with new activity while the user was on a different chat. Cleared on select. */
+  unreadAgentIds: string[];
 };
 
 export type SaveSettingsInput = {

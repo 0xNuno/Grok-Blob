@@ -156,6 +156,29 @@ body {
   opacity: 0.9;
 }
 
+.unread-badge {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c4a574;
+  box-shadow: 0 0 0 1px rgba(26, 20, 14, 0.35), 0 0 6px rgba(196, 165, 116, 0.55);
+}
+
+.agent-switch.has-unread {
+  box-shadow: inset 0 0 0 1px rgba(var(--agent-rgb), 0.28);
+}
+
+.agent-picker-item.unread .roster-name,
+.roster-row.unread .roster-name {
+  font-weight: 600;
+}
+
+.agent-picker-item .unread-badge,
+.roster-row .unread-badge {
+  margin-left: 2px;
+}
+
 .ghost {
   -webkit-app-region: no-drag;
   border: 0;
