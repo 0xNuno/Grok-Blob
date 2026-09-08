@@ -55,6 +55,10 @@ Shipped: each non-dismissed activity-panel task row has a six-dot grab handle fo
 
 Shipped: pipeline section head has a segmented **Bots | Mine** toggle (last tab persisted in `localStorage`). **Bots** keeps the existing `activity.json` chron / demo seed / Sync. **Mine** is a separate local board (`userData/mine-tasks.json`, schema `blob.mine/v1`, dismiss via `dismissed-mine.json`) with an Add row, grab reorder via `setMineTasks`, Clear / Details / Cycle status. Agent writers cannot overwrite it. Agents roster stays visible under both tabs.
 
+### ~~Pipeline: right-click Start building~~ **ask** — S **done**
+
+Shipped: task context menu (Bots and Mine) has **Start building**. On click: select the task's `agentId` when that agent is on the live roster (otherwise keep the current agent); send via existing `sendPrompt` a `continue building: <title>` prompt (short clipped `note` appended when present); best-effort mark the row `running` through the same `setActivityTasks` / `setMineTasks` userData write path as reorder; close the menu without locking the composer.
+
 ### ~~Move blob to another display~~ **ask** — S **done**
 
 Shipped: `Command+Shift+M` cycles the overlay onto the next display (same relative work-area position, clamped). One screen: no-op. Display ids are unstable, so placement persists a geometry signature (`window-state.json`) and reclamps on display-removed / metrics-changed. Tray and Window menu can move it too. Mechanisms from ProLocalAgent, not a UX clone.

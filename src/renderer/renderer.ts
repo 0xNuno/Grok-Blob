@@ -1483,6 +1483,76 @@ function openTaskDetail(task: ActivityTask, x: number, y: number): void {
   placeFixed(taskDetail, x, y);
 }
 
+
+/** Right-click Start building: select task agent if on roster, send continue prompt, mark running. */
+function buildContinuePrompt(task: ActivityTask): string {
+  let prompt = `continue building: ${task.title}`;
+  const note = task.note?.trim() ?? "";
+  if (note) prompt += `\n\n${clip(note, 280)}`;
+  return prompt;
+}
+
+/** Best-effort status flip via the same userData write path as reorder. */
+async function markTaskRunning(id: string): Promise<void> {
+  if (activityReordering) return;
+  const idx = lastTasks.findIndex((task) => task.id === id);
+  if (idx < 0) return;
+  const currentTask = lastTasks[idx];
+  if (!currentTask) return;
+  const ordered = lastTasks.map((task, i) =>
+    i === idx ? { ...task, status: "running", updatedAt: new Date().toISOString() } : task,
+  );
+  activityReordering = true;
+  try {
+    const feed =
+      pipelineTab === "mine"
+        ? await window.blob.setMineTasks(ordered)
+        : await window.blob.setActivityTasks(ordered);
+    if (pipelineTab === "bots") {
+      lastCheckedAt = Date.now();
+      lastChron = { newCount: 0, updatedCount: 1, removedCount: 0, changedIds: [id], summary: "1 updated" };
+      chronPrev = feed.tasks;
+    }
+    lastTasks = feed.tasks;
+    flashIds = new Set([id]);
+    flashUntil = Date.now() + 1400;
+    if (panelOpen) {
+      renderTasks(feed.tasks, current?.agents ?? []);
+      paintChron();
+    }
+  } catch {
+    // Best-effort — prompt still sends.
+  } finally {
+    activityReordering = false;
+  }
+}
+
+/**
+ * Pipeline Start building: choose task agent when on roster, sendPrompt without locking
+ * the composer, best-effort mark the row running, close the menu.
+ */
+async function startBuilding(task: ActivityTask): Promise<void> {
+  closeTaskMenu();
+  if (!current?.configured || holdingSetup) return;
+  // Spec: select task.agentId only when that id is on the live roster; else keep current.
+  const live = task.agentId
+    ? current.agents.find((agent) => agent.id === task.agentId)
+    : undefined;
+  const prompt = buildContinuePrompt(task);
+  void markTaskRunning(task.id);
+  try {
+    if (live && live.id !== current.agentId) {
+      const selected = await window.blob.selectAgent(live.id);
+      apply(selected);
+    }
+    // Do not set `sending` / disable the composer — fire-and-forget beside normal typing.
+    const next = await window.blob.sendPrompt(prompt);
+    apply(next);
+  } catch {
+    // Leave composer alone; banner/error comes from sheet state if any.
+  }
+}
+
 function openTaskMenu(task: ActivityTask, x: number, y: number): void {
   closeMsgMenu();
   closeTaskDetail();
@@ -1490,6 +1560,14 @@ function openTaskMenu(task: ActivityTask, x: number, y: number): void {
   taskMenu.replaceChildren();
   const idx = lastTasks.findIndex((row) => row.id === task.id);
   const last = lastTasks.length - 1;
+  const start = document.createElement("button");
+  start.type = "button";
+  start.className = "msg-menu-item";
+  start.setAttribute("role", "menuitem");
+  start.textContent = "Start building";
+  start.addEventListener("click", () => {
+    void startBuilding(task);
+  });
   const up = document.createElement("button");
   up.type = "button";
   up.className = "msg-menu-item";
@@ -1534,9 +1612,9 @@ function openTaskMenu(task: ActivityTask, x: number, y: number): void {
     cycle.addEventListener("click", () => {
       void cycleMineStatus(task.id);
     });
-    taskMenu.append(up, down, details, cycle, clear);
+    taskMenu.append(start, up, down, details, cycle, clear);
   } else {
-    taskMenu.append(up, down, details, clear);
+    taskMenu.append(start, up, down, details, clear);
   }
   taskMenu.hidden = false;
   placeFixed(taskMenu, x, y);
