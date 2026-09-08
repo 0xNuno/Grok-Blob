@@ -4,9 +4,11 @@
 
 ## What
 
-- Mac overlay for Grok Bot agents: summon it with a hotkey, talk to agents, and follow shared activity without living in the official tab.
-- Thin local client over the host's private HTTP gateway (localhost or private mesh). Blob is not a host and not SaaS. Until there is a public API, the gateway is the headless path: the same agents, custom interfaces and shortcuts, and new use cases.
-- Mac-first, with Linux smoke testing. MIT copyright 2026 Nuno Cortesao. The published tree contains placeholders only, never a real `gateway.json`.
+Blob is a Mac overlay for Grok Bot agents: summon it with a hotkey, talk to your agents, and follow shared activity without living in the official tab. The same architecture is a baseline for building custom dashboards and workflows on Grok Bot infrastructure.
+
+It is a thin local client over the host private HTTP gateway (localhost or a private mesh). Not a host, not SaaS. Until there is a public API, that gateway is the headless path: same agents, your own interfaces on top.
+
+Mac-first (Linux for smoke). MIT, copyright 2026 Nuno Cortesao. The published tree ships placeholders only, never a real `gateway.json`.
 
 ## What's in
 
