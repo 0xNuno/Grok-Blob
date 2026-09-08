@@ -61,7 +61,7 @@ Package a real app outside the esbuild dist/ tree into ~/Library/Caches/GrokBlob
 1. Enter the gateway URL. The default is http://127.0.0.1:1340; use localhost first, or an SSH forward or private mesh for a remote gateway. See [docs/connecting.md](docs/connecting.md).
 2. Enter the token. It is stored in Keychain through Electron safeStorage when available, never logged, committed, or placed in a query string.
 3. Optionally provide GROKBOT_GATEWAY_URL and SAND_GATEWAY_TOKEN in a local .env file.
-4. For capture, grant Screen Recording access to Blob (packaged) or Electron (development) under System Settings > Privacy & Security > Screen & System Audio Recording.
+4. For capture, grant Screen Recording access to Blob (packaged) or Electron (development) under System Settings > Privacy & Security > Screen & System Audio Recording. Your agent can open that pane and walk you through it; you still have to click Allow.
 5. Summon Blob with the summon shortcut, fallback, or tray icon.
 
 The v1 send path is POST /api/sendPrompt, poll POST /api/listAgents until the agent is no longer running or composing, then call POST /api/getAgentTranscriptTail and show the latest assistant text. See [docs/architecture.md](docs/architecture.md).

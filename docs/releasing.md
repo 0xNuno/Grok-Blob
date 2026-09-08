@@ -44,3 +44,8 @@ Tag and attach dist-out dmg/zip using the release-notes template. No tokens or l
 ## Apple notarization later
 
 Needs Developer ID and notary access. Until then unsigned with Right-click Open is fine. See launch-checklist.md.
+
+## After you flip the repo public
+
+Enable GitHub **Secret scanning** and **Push protection** (Settings → Code security). On a free private repo those are unavailable; they unlock once the repo is public. You can ask your Grok Bot to turn them on with `gh` after the flip.
+
