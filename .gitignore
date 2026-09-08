@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 .env.*
+!.env.example
 tokens
 *.token
 gateway.json

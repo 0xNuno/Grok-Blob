@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, parse as parsePath } from "node:path";
+import { join, sep as PathSep } from "node:path";
 import { DEFAULT_GATEWAY_URL } from "../shared/types";
 import { loadSettings, saveSettings } from "./settings";
 
@@ -42,34 +42,28 @@ function collectRoots(): string[] {
   return roots;
 }
 
-function walkParents(start: string, max = 8): string[] {
+/** Candidate dirs for an optional local `.env` (dev shortcut only). */
+function envCandidateDirs(): string[] {
   const dirs: string[] = [];
-  let current = start;
-  const { root } = parsePath(current);
-  for (let i = 0; i < max; i++) {
-    dirs.push(current);
-    if (current === root) break;
-    const parent = dirname(current);
-    if (parent === current) break;
-    current = parent;
+  const add = (value: string | undefined): void => {
+    if (value && !dirs.includes(value)) dirs.push(value);
+  };
+  for (const root of collectRoots()) {
+    add(root);
+    // Dev build: __dirname is usually …/dist/main — also check the project root.
+    if (root.includes(`${PathSep}dist${PathSep}`) || /[/\\]dist[/\\]/.test(root)) {
+      add(join(root, "..", ".."));
+    }
   }
   return dirs;
 }
 
 function findEnvFile(): string | null {
-  const seen = new Set<string>();
-  let fallback: string | null = null;
-  for (const root of collectRoots()) {
-    for (const dir of walkParents(root)) {
-      if (seen.has(dir)) continue;
-      seen.add(dir);
-      const envPath = join(dir, ".env");
-      if (!existsSync(envPath)) continue;
-      if (existsSync(join(dir, "package.json"))) return envPath;
-      if (!fallback) fallback = envPath;
-    }
+  for (const dir of envCandidateDirs()) {
+    const envPath = join(dir, ".env");
+    if (existsSync(envPath)) return envPath;
   }
-  return fallback;
+  return null;
 }
 
 function readLocalEnv(): { gatewayUrl: string; token: string } | null {
