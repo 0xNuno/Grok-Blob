@@ -29,6 +29,7 @@ type BlobApi = {
   }) => Promise<SheetState>;
   openSettings: () => Promise<SheetState>;
   sync: () => Promise<SheetState>;
+  loadTranscript: () => Promise<SheetState>;
   refreshRoster: () => Promise<SheetState>;
   getActivity: () => Promise<{ tasks: ActivityTask[]; source: string }>;
   setActivityTasks: (tasks: ActivityTask[]) => Promise<{ tasks: ActivityTask[]; source: string }>;
@@ -112,6 +113,8 @@ let activityReordering = false;
 let current: SheetState | null = null;
 let panelOpen = false;
 let panelTimer: number | null = null;
+let transcriptTimer: number | null = null;
+let transcriptPolling = false;
 let lastTasks: ActivityTask[] = [];
 type PipelineTab = "bots" | "mine";
 const PIPELINE_TAB_KEY = "blob.pipelineTab";
@@ -158,6 +161,8 @@ let detailTaskId: string | null = null;
 let detailExpanded = false;
 const OPEN_POLL_MS = 2500;
 const CLOSED_POLL_MS = 15000;
+/** While the sheet shows a chat, pull the current transcript even when the host is busy. */
+const TRANSCRIPT_POLL_MS = 2000;
 let holdingSetup = false;
 let viewingSettings = false;
 let setupHoldTimer: number | null = null;
@@ -1910,6 +1915,63 @@ function paintUnreadChrome(): void {
   if (pickerOpen) paintPicker({ keepIndex: true });
 }
 
+function messagesSig(messages: ChatMessage[]): string {
+  if (messages.length === 0) return "0";
+  const last = messages[messages.length - 1];
+  const react = last.reactions?.map((r) => `${r.emoji}:${r.count}:${r.mine ? 1 : 0}`).join(",") ?? "";
+  const widget = last.widget ? `${last.widget.kind}:${last.widget.status ?? ""}:${last.widget.pending ? 1 : 0}` : "";
+  return `${messages.length}:${last.id}:${last.text.length}:${react}:${widget}`;
+}
+
+function stopTranscriptPoll(): void {
+  if (transcriptTimer !== null) {
+    window.clearInterval(transcriptTimer);
+    transcriptTimer = null;
+  }
+}
+
+function startTranscriptPoll(): void {
+  stopTranscriptPoll();
+  transcriptTimer = window.setInterval(() => {
+    void tickTranscript();
+  }, TRANSCRIPT_POLL_MS);
+}
+
+/**
+ * Pull the selected agent's transcript on a short interval.
+ * Background activity poll only refreshes the roster — host chat can move
+ * ahead while Blob is waiting for idle or while the turn came from elsewhere.
+ */
+async function tickTranscript(): Promise<void> {
+  if (transcriptPolling) return;
+  if (!current?.configured || holdingSetup || viewingSettings || syncingUi || sending) return;
+  transcriptPolling = true;
+  try {
+    const prev = current;
+    const state = await window.blob.loadTranscript();
+    if (!current?.configured || holdingSetup || viewingSettings) return;
+    // If the user switched agents mid-flight, apply fully so UI stays consistent.
+    if (state.agentId !== prev?.agentId) {
+      apply(state);
+      return;
+    }
+    const msgChanged = messagesSig(state.messages) !== messagesSig(prev.messages);
+    const busyChanged = state.busy !== prev.busy || state.status !== prev.status;
+    const unreadChanged =
+      (state.unreadAgentIds ?? []).join() !== (prev.unreadAgentIds ?? []).join();
+    if (!msgChanged && !busyChanged && !unreadChanged) {
+      // Roster-only drift is handled by tickActivity; avoid re-painting chat.
+      mergeRosterState(state);
+      return;
+    }
+    apply(state);
+  } catch {
+    // Poll blip — keep the last paint.
+  } finally {
+    transcriptPolling = false;
+  }
+}
+
 function stopPanelPoll(): void {
   if (panelTimer !== null) {
     window.clearInterval(panelTimer);
@@ -2505,5 +2567,7 @@ window.blob.onState((next) => {
 void window.blob.bootstrap().then((state) => {
   apply(state);
   startActivityPoll();
+  startTranscriptPoll();
   void tickActivity();
+  void tickTranscript();
 });
